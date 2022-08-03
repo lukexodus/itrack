@@ -119,6 +119,8 @@ while True:
     else:
         if maxRow <= 2:
             print("Please input at least one record in the excel file for the program to work.\n")
+            print("Program ended.")
+            sys.exit()
     break
 
 # Puts the data to a dictionary
@@ -158,7 +160,7 @@ try:
                         print(f"{info}:{tabs}{inventory[item][info]}")
                     print()
                     showedItems.append(item)
-                    threading.Thread(target=removeFromList, args=[showedItems, item, 5]).start()
+                    threading.Thread(target=removeFromList, args=[showedItems, item, 15]).start()
             else:
                 cv2.putText(img, "UNRECOGNIZED", (pts2[0], pts2[1]), cv2.FONT_HERSHEY_COMPLEX, 0.9, (255, 0, 255), 2)
 
