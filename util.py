@@ -1,6 +1,9 @@
+import threading
+import time
 import os
 import typing
 from typing import List, Dict, Mapping
+
 
 def getExcelFiles() -> List[str]:
     excelFiles: List[str] = []
@@ -8,6 +11,7 @@ def getExcelFiles() -> List[str]:
         if file.endswith('.xlsx'):
             excelFiles.append(file)
     return excelFiles
+
 
 def getData(ws) -> Dict[int, list]:
     rows = list(ws.rows)
@@ -24,3 +28,8 @@ def getData(ws) -> Dict[int, list]:
         for cell in column:
             columnsDict[i + 1].append(cell.value)
     return rowsDict, columnsDict
+
+
+def removeFromList(targetList, value, duration):
+    time.sleep(duration)
+    targetList.remove(value)

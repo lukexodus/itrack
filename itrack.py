@@ -1,3 +1,5 @@
+#! python3
+
 import datetime
 import logging
 import os
@@ -10,6 +12,7 @@ from typing import List, Dict, Mapping, Tuple, Union, Optional, Any
 import random
 import re
 import collections
+import pprint
 
 import cv2
 import numpy as np
@@ -20,9 +23,18 @@ from openpyxl.utils.cell import get_column_letter, column_index_from_string
 import pyinputplus
 import pyinputplus as pyip
 
-from util import getExcelFiles, getData
+from util import getExcelFiles, getData, removeFromList
+
+print(""" __      __  __     __                         ___               
+/ _  /\ |__)(_ |__|(_   | _    _  _ |_ _  _     |  _ _  _ |  _  _
+\__)/--\| \ __)|  |__)  || )\/(-`| )|_(_)| \/   | | (_|(_ |<(-`| 
+                                           /                     
+""")
 
 defaultExcelFilename = "GARSHS_INVENTORY.xlsx"
+itemColHead = "Item"
+infos     = ["Available", "Place", "Person In Charge"]
+tabNumber = [2, 3, 1]
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 # logging.disable(logging.INFO)
@@ -48,7 +60,7 @@ while True:
     elif len(excelFiles) == 1:
         excelFilename = excelFiles[0]
         print(f'Found {excelFilename}')
-        print('Exit the program (Ctrl+C) if this is not the excel file you want.')
+        print('Exit the program if this is not the excel file you want.')
         break
     elif len(excelFiles) == 2 and \
             (excelFiles[0].startswith('~$') or excelFiles[1].startswith('~$')):
@@ -76,49 +88,46 @@ while True:
         break
 
 # Detects if the excel file is not initialized (data is not yet inputted)
-# and if not, write the column headers, and then prompts the user to fill it up
+# and if not, write the column infos, and then prompts the user to fill it up
 while True:
     wb = openpyxl.load_workbook(excelFilename)
     ws = wb.active
     rowsDict, columnsDict = getData(ws)
-    if not rowsDict and not columnsDict:
+    maxRow = ws.max_row
+    if not rowsDict:
         ws.freeze_panes = 'B3'
+        print("Adding infos...")
 
         if ws['A1'].value != '':
             ws['A1'].value = 'GARSHS INVENTORY'
             ws['A1'].font = Font(size=20)
         if ws['A2'].value != '':
-            ws['A2'].value = 'Equipment'
+            ws['A2'].value = itemColHead
             ws['A2'].font = Font(size=14)
-        if ws['B2'].value != '':
-            ws['B2'].value = 'Working'
-            ws['B2'].font = Font(size=14)
-        if ws['C2'].value != '':
-            ws['C2'].value = 'Available'
-            ws['C2'].font = Font(size=14)
-        if ws['D2'].value != '':
-            ws['D2'].value = 'Place'
-            ws['D2'].font = Font(size=14)
-        if ws['E2'].value != '':
-            ws['E2'].value = 'Person In Charge'
-            ws['E2'].font = Font(size=14)
+        for i in range(1, len(infos) + 1):
+            if ws.cell(row=2, column=i+1).value != '':
+                ws.cell(row=2, column=i+1).value = infos[i - 1]
+                ws.cell(row=2, column=i+1).font = Font(size=14)
 
     try:
         wb.save(excelFilename)
-        wb = openpyxl.load_workbook(excelFilename)
-        ws = wb.active
-        rowsDict, columnsDict = getData(ws)
     except PermissionError:
         print("\n!!!  The excel file is open on another window  !!!")
-        print("Close the excel file to let the program manipulate it. Press enter if done closing the window.")
+        print("Close the excel file to let the program manipulate it. Press enter if done closing the window.\n")
         continueProgram = input('> ')
         continue
-
-    wb.save(excelFilename)
+    else:
+        if maxRow <= 2:
+            print("Please input at least one record in the excel file for the program to work.\n")
     break
 
 # Puts the data to a dictionary
-
+inventory = {}
+for rowIndex in range(3, maxRow + 1):
+    item = rowsDict[rowIndex][0]
+    inventory.setdefault(item, {})
+    for i in range(len(infos)):
+        inventory[item][infos[i]] = rowsDict[rowIndex][i + 1]
 
 try:
     print("\nOpening the webcam... please wait\n")
@@ -126,21 +135,32 @@ try:
     cap.set(3, 640)
     cap.set(4, 480)
 
-    print("Webcam is running.     You can now show your QR code to the webcam.")
-    print("--------------------------ATTENDANCE_LOG---------------------------")
+    print("Webcam is running.     You can now show the QR codes to the webcam.")
+    print("----------------------------ITEM INFO------------------------------")
 
+    showedItems = []
     while True:
         success, img = cap.read()
         for qrcode in decode(img):
-            name = qrcode.data.decode("utf-8")
-            print(name)
-            # time.sleep(0.5)
+            item = qrcode.data.decode("utf-8")
 
             pts = np.array([qrcode.polygon], np.int32)
             pts = pts.reshape((-1, 1, 2))
             cv2.polylines(img, [pts], True, (255, 0, 255), 5)
             pts2 = qrcode.rect
-            cv2.putText(img, name, (pts2[0], pts2[1]), cv2.FONT_HERSHEY_COMPLEX, 0.9, (255, 0, 255), 2)
+
+            if item in inventory:
+                cv2.putText(img, item, (pts2[0], pts2[1]), cv2.FONT_HERSHEY_COMPLEX, 0.9, (255, 0, 255), 2)
+                if item not in showedItems:
+                    print(f"{itemColHead}:\t\t\t{item}")
+                    for i, info in enumerate(infos):
+                        tabs = "\t" * tabNumber[i]
+                        print(f"{info}:{tabs}{inventory[item][info]}")
+                    print()
+                    showedItems.append(item)
+                    threading.Thread(target=removeFromList, args=[showedItems, item, 5]).start()
+            else:
+                cv2.putText(img, "UNRECOGNIZED", (pts2[0], pts2[1]), cv2.FONT_HERSHEY_COMPLEX, 0.9, (255, 0, 255), 2)
 
         cv2.imshow("Please show your QR code to the webcam.", img)
         cv2.waitKey(1)
