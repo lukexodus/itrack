@@ -1,0 +1,7 @@
+pip install opencv-python
+pip install pyzbar
+pip install numpy
+pip install openpyxl
+pip install pyinputplus
+pip install ezsheets
+pip install ezgmail
