@@ -41,6 +41,10 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 
 while True:
     excelFiles = getExcelFiles()
+    name = input("Please input your name:")
+    lastName = input("Last name:")
+    fullName = name + " " + lastName
+
 
     noInitialFile = False
 
@@ -130,6 +134,7 @@ for rowIndex in range(3, maxRow + 1):
     inventory.setdefault(item, {})
     for i in range(len(infos)):
         inventory[item][infos[i]] = rowsDict[rowIndex][i + 1]
+        rowsDict[rowIndex][i + int(item)]  = inventory[item]
 
 try:
     print("\nOpening the webcam... please wait\n")
